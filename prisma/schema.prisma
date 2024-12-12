@@ -1,0 +1,32 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Port {
+  id                String   @id @default(cuid())
+  locode            String   @unique
+  name              String
+  nameWoDiacritics  String?
+  latitude          Float
+  longitude         Float
+  countryCode       String
+  function          String
+  status            String
+  subdivision       String?
+  iata             String?
+  remarks          String?
+  unlocodeDate     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([countryCode, name(sort: Asc)])
+  @@index([countryCode, nameWoDiacritics(sort: Asc)])
+  @@index([countryCode, locode])
+  @@index([latitude, longitude])
+}
