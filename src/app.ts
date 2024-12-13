@@ -1,16 +1,18 @@
 import express from 'express';
-import { router } from './routes/ports';
 import cors from 'cors';
+import { router as portsRouter } from './routes/ports';
 
 const app = express();
 
-// Enable CORS for development
 app.use(cors());
-
-// Parse JSON bodies
 app.use(express.json());
 
-// Register the routes
-app.use('/api/ports', router);
+// Mount the router at /api/ports
+app.use('/api/ports', portsRouter);
+
+// Add a test endpoint
+app.get('/api/test', (req, res) => {
+  res.json({ status: 'ok' });
+});
 
 export { app }; 
