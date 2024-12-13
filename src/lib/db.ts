@@ -28,35 +28,40 @@ export async function findNearbyPorts(
       iata,
       remarks,
       (
-        3440.065 * 2 * asin(
-          sqrt(
-            power(sin(radians(CAST(latitude AS FLOAT) - $1) / 2), 2) +
-            cos(radians($1)) * 
-            cos(radians(CAST(latitude AS FLOAT))) * 
-            power(sin(radians(CAST(longitude AS FLOAT) - $2) / 2), 2)
-          )
+        3440.065 * acos(
+          least(1.0, cos(radians($1)) * 
+          cos(radians(CAST(latitude AS FLOAT))) * 
+          cos(radians(CAST(longitude AS FLOAT) - radians($2))) + 
+          sin(radians($1)) * 
+          sin(radians(CAST(latitude AS FLOAT))))
         )
       ) as distance
     FROM ports
     WHERE latitude IS NOT NULL 
       AND longitude IS NOT NULL
-      AND CAST(latitude AS FLOAT) BETWEEN $1 - 1 AND $1 + 1
-      AND CAST(longitude AS FLOAT) BETWEEN $2 - 1 AND $2 + 1
+      AND CAST(latitude AS FLOAT) BETWEEN $1 - ($3/60) AND $1 + ($3/60)
+      AND CAST(longitude AS FLOAT) BETWEEN $2 - ($3/60) AND $2 + ($3/60)
     HAVING (
-      3440.065 * 2 * asin(
-        sqrt(
-          power(sin(radians(CAST(latitude AS FLOAT) - $1) / 2), 2) +
-          cos(radians($1)) * 
-          cos(radians(CAST(latitude AS FLOAT))) * 
-          power(sin(radians(CAST(longitude AS FLOAT) - $2) / 2), 2)
-        )
+      3440.065 * acos(
+        least(1.0, cos(radians($1)) * 
+        cos(radians(CAST(latitude AS FLOAT))) * 
+        cos(radians(CAST(longitude AS FLOAT) - radians($2))) + 
+        sin(radians($1)) * 
+        sin(radians(CAST(latitude AS FLOAT))))
       )
     ) <= $3
     ORDER BY distance
     LIMIT $4;
   `;
 
-  const result = await pool.query(query, [lat, lon, radius, limit]);
+  const queryConfig = {
+    text: query,
+    values: [lat, lon, radius, limit],
+    // Set a reasonable timeout
+    query_timeout: 10000 // 10 seconds
+  };
+
+  const result = await pool.query(queryConfig);
   console.log(`Found ${result.rows.length} ports`);
 
   return result.rows.map(port => ({
