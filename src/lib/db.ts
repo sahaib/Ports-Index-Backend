@@ -33,7 +33,10 @@ export async function findNearbyPorts(
           ll_to_earth(CAST(latitude AS FLOAT), CAST(longitude AS FLOAT))
         ) / 1000 as distance
       FROM ports
-      WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+      WHERE latitude IS NOT NULL 
+        AND longitude IS NOT NULL
+        AND latitude BETWEEN $1 - 1 AND $1 + 1
+        AND longitude BETWEEN $2 - 1 AND $2 + 1
     )
     SELECT *
     FROM nearby_ports
