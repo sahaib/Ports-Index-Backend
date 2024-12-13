@@ -43,6 +43,28 @@ const getPortByLocode: RequestHandler<LocodeParams> = async (req, res) => {
   }
 };
 
+const getNearbyPorts: RequestHandler = async (req, res) => {
+  try {
+    const lat = Number(req.query.lat);
+    const lon = Number(req.query.lon);
+    const radius = Number(req.query.radius) || 30;
+    
+    if (isNaN(lat) || isNaN(lon)) {
+      res.status(400).json({ error: 'Invalid coordinates' });
+      return;
+    }
+
+    const ports = await findNearbyPorts(lat, lon, radius);
+    res.json({ ports });
+    
+  } catch (error) {
+    console.error('Nearby ports error:', error);
+    res.status(500).json({ error: 'Failed to fetch nearby ports' });
+  }
+};
+
+app.get('/api/ports/nearby', getNearbyPorts);
+
 app.get('/api/ports/:locode', getPortByLocode);
 
 const searchPorts: RequestHandler<{}, any, any, QueryParams> = async (req, res) => {
@@ -77,31 +99,9 @@ const searchPorts: RequestHandler<{}, any, any, QueryParams> = async (req, res) 
 
 app.get('/api/ports', searchPorts);
 
-const getNearbyPorts: RequestHandler = async (req, res) => {
-  try {
-    console.log('Received nearby ports request:', req.query);
-    
-    const lat = Number(req.query.lat);
-    const lon = Number(req.query.lon);
-    const radius = Number(req.query.radius) || 30;
-    
-    if (isNaN(lat) || isNaN(lon)) {
-      res.status(400).json({ error: 'Invalid coordinates' });
-      return;
-    }
-
-    const ports = await findNearbyPorts(lat, lon, radius);
-    console.log(`Found ${ports.length} ports near ${lat},${lon}`);
-    
-    res.json({ ports });
-    
-  } catch (error) {
-    console.error('Nearby ports error:', error);
-    res.status(500).json({ error: 'Failed to fetch nearby ports' });
-  }
-};
-
-app.get('/api/ports/nearby', getNearbyPorts);
+app.get('/api/test', (_, res) => {
+  res.json({ status: 'ok' });
+});
 
 app.listen(port, () => {
   console.log(`Backend server running on port ${port}`);
