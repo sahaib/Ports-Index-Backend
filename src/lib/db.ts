@@ -1,9 +1,5 @@
-import { Pool, QueryConfig } from 'pg';
+import prisma  from '../lib/prisma';
 import { PortData } from '../types/port';
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
-});
 
 export async function findNearbyPorts(
   lat: number,
@@ -13,64 +9,61 @@ export async function findNearbyPorts(
 ): Promise<PortData[]> {
   console.log('Finding ports:', { lat, lon, radius, limit });
 
-  const query = `
-    SELECT 
-      locode,
-      name,
-      name_wo_diacritics as "nameWoDiacritics",
-      CAST(latitude AS FLOAT) as latitude,
-      CAST(longitude AS FLOAT) as longitude,
-      subdivision,
-      function,
-      status,
-      country_code as "countryCode",
-      date,
-      iata,
-      remarks,
-      (
-        3440.065 * acos(
-          least(1.0, cos(radians($1)) * 
-          cos(radians(CAST(latitude AS FLOAT))) * 
-          cos(radians(CAST(longitude AS FLOAT) - radians($2))) + 
-          sin(radians($1)) * 
-          sin(radians(CAST(latitude AS FLOAT))))
-        )
-      ) as distance
-    FROM ports
-    WHERE latitude IS NOT NULL 
-      AND longitude IS NOT NULL
-      AND CAST(latitude AS FLOAT) BETWEEN $1 - ($3/60) AND $1 + ($3/60)
-      AND CAST(longitude AS FLOAT) BETWEEN $2 - ($3/60) AND $2 + ($3/60)
-    HAVING (
-      3440.065 * acos(
-        least(1.0, cos(radians($1)) * 
-        cos(radians(CAST(latitude AS FLOAT))) * 
-        cos(radians(CAST(longitude AS FLOAT) - radians($2))) + 
-        sin(radians($1)) * 
-        sin(radians(CAST(latitude AS FLOAT))))
-      )
-    ) <= $3
-    ORDER BY distance
-    LIMIT $4;
-  `;
+  try {
+    // Convert radius to approximate degrees (1 degree ≈ 111 km)
+    const degreeRadius = radius / 111;
 
-  const queryConfig = {
-    text: query,
-    values: [lat, lon, radius, limit],
-    // Set a reasonable timeout
-    query_timeout: 10000 // 10 seconds
-  };
+    const ports = await prisma.port.findMany({
+      where: {
+        AND: [
+          { latitude: { gte: lat - degreeRadius } },
+          { latitude: { lte: lat + degreeRadius } },
+          { longitude: { gte: lon - degreeRadius } },
+          { longitude: { lte: lon + degreeRadius } }
+        ]
+      },
+      take: limit
+    });
 
-  const result = await pool.query(queryConfig);
-  console.log(`Found ${result.rows.length} ports`);
+    // Calculate actual distances and filter
+    return ports
+      .map((port: PortData) => {
+        const distance = calculateHaversineDistance(
+          lat,
+          lon,
+          port.latitude,
+          port.longitude
+        );
+        return { ...port, distance };
+      })
+      .filter((port: PortData) => port.distance! <= radius)
+      .sort((a: PortData, b: PortData) => a.distance! - b.distance!)
+      .slice(0, limit);
+  } catch (error) {
+    console.error('Error finding nearby ports:', error);
+    throw error;
+  }
+}
 
-  return result.rows.map(port => ({
-    ...port,
-    type: 'port' as const,
-    lat: Number(port.latitude),
-    lon: Number(port.longitude),
-    latitude: Number(port.latitude),
-    longitude: Number(port.longitude),
-    distance: Number(port.distance)
-  }));
+function calculateHaversineDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+function toRad(degrees: number): number {
+  return degrees * (Math.PI / 180);
 } 
