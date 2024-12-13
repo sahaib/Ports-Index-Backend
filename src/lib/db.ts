@@ -13,10 +13,6 @@ export async function findNearbyPorts(
 ): Promise<PortData[]> {
   console.log('Finding ports:', { lat, lon, radius, limit });
 
-  // First ensure extensions are installed
-  await pool.query('CREATE EXTENSION IF NOT EXISTS cube;');
-  await pool.query('CREATE EXTENSION IF NOT EXISTS earthdistance;');
-
   const query = `
     SELECT 
       locode,
@@ -31,12 +27,29 @@ export async function findNearbyPorts(
       date,
       iata,
       remarks,
-      point($1, $2) <@> point(latitude, longitude) as distance
+      (
+        6371 * acos(
+          cos(radians($1)) * 
+          cos(radians(CAST(latitude AS FLOAT))) * 
+          cos(radians(CAST(longitude AS FLOAT)) - radians($2)) + 
+          sin(radians($1)) * 
+          sin(radians(CAST(latitude AS FLOAT)))
+        )
+      ) as distance
     FROM ports
-    WHERE 
-      latitude IS NOT NULL 
+    WHERE latitude IS NOT NULL 
       AND longitude IS NOT NULL
-      AND point($1, $2) <@> point(latitude, longitude) <= $3
+      AND CAST(latitude AS FLOAT) BETWEEN $1 - 1 AND $1 + 1
+      AND CAST(longitude AS FLOAT) BETWEEN $2 - 1 AND $2 + 1
+    HAVING (
+      6371 * acos(
+        cos(radians($1)) * 
+        cos(radians(CAST(latitude AS FLOAT))) * 
+        cos(radians(CAST(longitude AS FLOAT)) - radians($2)) + 
+        sin(radians($1)) * 
+        sin(radians(CAST(latitude AS FLOAT)))
+      )
+    ) <= $3
     ORDER BY distance
     LIMIT $4;
   `;
