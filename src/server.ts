@@ -3,6 +3,7 @@ import cors from 'cors';
 import prisma from './lib/prisma';
 import dotenv from 'dotenv';
 import { Request as ExpressRequest, Response as ExpressResponse } from 'express';
+import { findNearbyPorts } from './lib/db';
 
 dotenv.config();
 
@@ -75,6 +76,32 @@ const searchPorts: RequestHandler<{}, any, any, QueryParams> = async (req, res) 
 };
 
 app.get('/api/ports', searchPorts);
+
+const getNearbyPorts: RequestHandler = async (req, res) => {
+  try {
+    console.log('Received nearby ports request:', req.query);
+    
+    const lat = Number(req.query.lat);
+    const lon = Number(req.query.lon);
+    const radius = Number(req.query.radius) || 30;
+    
+    if (isNaN(lat) || isNaN(lon)) {
+      res.status(400).json({ error: 'Invalid coordinates' });
+      return;
+    }
+
+    const ports = await findNearbyPorts(lat, lon, radius);
+    console.log(`Found ${ports.length} ports near ${lat},${lon}`);
+    
+    res.json({ ports });
+    
+  } catch (error) {
+    console.error('Nearby ports error:', error);
+    res.status(500).json({ error: 'Failed to fetch nearby ports' });
+  }
+};
+
+app.get('/api/ports/nearby', getNearbyPorts);
 
 app.listen(port, () => {
   console.log(`Backend server running on port ${port}`);
