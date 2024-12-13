@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Pool, QueryConfig } from 'pg';
 import { PortData } from '../types/port';
 
 const pool = new Pool({
@@ -14,38 +14,43 @@ export async function findNearbyPorts(
   console.log('Finding ports:', { lat, lon, radius, limit });
 
   const query = `
-    WITH nearby_ports AS (
-      SELECT 
-        locode,
-        name,
-        name_wo_diacritics as "nameWoDiacritics",
-        CAST(latitude AS FLOAT) as latitude,
-        CAST(longitude AS FLOAT) as longitude,
-        subdivision,
-        function,
-        status,
-        country_code as "countryCode",
-        date,
-        iata,
-        remarks,
-        earth_distance(
-          ll_to_earth($1, $2),
-          ll_to_earth(CAST(latitude AS FLOAT), CAST(longitude AS FLOAT))
-        ) / 1000 as distance
-      FROM ports
-      WHERE latitude IS NOT NULL 
-        AND longitude IS NOT NULL
-        AND latitude BETWEEN $1 - 1 AND $1 + 1
-        AND longitude BETWEEN $2 - 1 AND $2 + 1
-    )
-    SELECT *
-    FROM nearby_ports
-    WHERE distance <= $3
+    SELECT 
+      locode,
+      name,
+      name_wo_diacritics as "nameWoDiacritics",
+      CAST(latitude AS FLOAT) as latitude,
+      CAST(longitude AS FLOAT) as longitude,
+      subdivision,
+      function,
+      status,
+      country_code as "countryCode",
+      date,
+      iata,
+      remarks,
+      earth_distance(
+        ll_to_earth($1, $2),
+        ll_to_earth(CAST(latitude AS FLOAT), CAST(longitude AS FLOAT))
+      ) / 1000 as distance
+    FROM ports
+    WHERE 
+      latitude IS NOT NULL 
+      AND longitude IS NOT NULL
+      AND latitude BETWEEN $1 - 1 AND $1 + 1
+      AND longitude BETWEEN $2 - 1 AND $2 + 1
+    HAVING earth_distance(
+      ll_to_earth($1, $2),
+      ll_to_earth(CAST(latitude AS FLOAT), CAST(longitude AS FLOAT))
+    ) / 1000 <= $3
     ORDER BY distance
     LIMIT $4;
   `;
 
-  const result = await pool.query(query, [lat, lon, radius, limit]);
+  const queryConfig: QueryConfig = {
+    text: query,
+    values: [lat, lon, radius, limit]
+  };
+
+  const result = await pool.query(queryConfig);
   
   console.log(`Found ${result.rows.length} ports`);
 
