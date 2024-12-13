@@ -28,12 +28,13 @@ export async function findNearbyPorts(
       iata,
       remarks,
       (
-        6371 * acos(
-          cos(radians($1)) * 
-          cos(radians(CAST(latitude AS FLOAT))) * 
-          cos(radians(CAST(longitude AS FLOAT)) - radians($2)) + 
-          sin(radians($1)) * 
-          sin(radians(CAST(latitude AS FLOAT)))
+        3440.065 * 2 * asin(
+          sqrt(
+            power(sin(radians(CAST(latitude AS FLOAT) - $1) / 2), 2) +
+            cos(radians($1)) * 
+            cos(radians(CAST(latitude AS FLOAT))) * 
+            power(sin(radians(CAST(longitude AS FLOAT) - $2) / 2), 2)
+          )
         )
       ) as distance
     FROM ports
@@ -42,12 +43,13 @@ export async function findNearbyPorts(
       AND CAST(latitude AS FLOAT) BETWEEN $1 - 1 AND $1 + 1
       AND CAST(longitude AS FLOAT) BETWEEN $2 - 1 AND $2 + 1
     HAVING (
-      6371 * acos(
-        cos(radians($1)) * 
-        cos(radians(CAST(latitude AS FLOAT))) * 
-        cos(radians(CAST(longitude AS FLOAT)) - radians($2)) + 
-        sin(radians($1)) * 
-        sin(radians(CAST(latitude AS FLOAT)))
+      3440.065 * 2 * asin(
+        sqrt(
+          power(sin(radians(CAST(latitude AS FLOAT) - $1) / 2), 2) +
+          cos(radians($1)) * 
+          cos(radians(CAST(latitude AS FLOAT))) * 
+          power(sin(radians(CAST(longitude AS FLOAT) - $2) / 2), 2)
+        )
       )
     ) <= $3
     ORDER BY distance
