@@ -1,6 +1,7 @@
 import { Router, RequestHandler } from 'express';
 import { findNearbyPorts } from '../lib/db';
 
+
 const router = Router();
 
 const getNearbyPorts: RequestHandler = async (req, res) => {
@@ -30,3 +31,4 @@ const getNearbyPorts: RequestHandler = async (req, res) => {
 router.get('/nearby', getNearbyPorts);
 
 export { router }; 
+export const portRoutes = router;
