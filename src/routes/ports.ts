@@ -1,4 +1,4 @@
-import { Router, Request, Response, RequestHandler } from 'express';
+import { Router, RequestHandler } from 'express';
 import { findNearbyPorts } from '../lib/db';
 
 const router = Router();
@@ -17,6 +17,8 @@ const getNearbyPorts: RequestHandler = async (req, res) => {
     }
 
     const ports = await findNearbyPorts(lat, lon, radius);
+    console.log(`Found ${ports.length} ports near ${lat},${lon}`);
+    
     res.json({ ports });
     
   } catch (error) {

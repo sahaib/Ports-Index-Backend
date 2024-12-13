@@ -7,11 +7,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Mount the router at /api/ports
+// Mount at /api/ports
 app.use('/api/ports', portsRouter);
 
-// Add a test endpoint
-app.get('/api/test', (req, res) => {
+// Test endpoint
+app.get('/api/test', (_, res) => {
   res.json({ status: 'ok' });
 });
 
